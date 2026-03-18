@@ -1,8 +1,13 @@
+torch
+transformers
+sentence-transformers
+xgboost
 pgmpy
+scikit-learn
 pandas
 numpy
+spacy
+tqdm
+shap
 matplotlib
-seaborn
-scikit-learn
-networkx
-jupyter
+ipykernel
