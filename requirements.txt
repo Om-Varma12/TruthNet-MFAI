@@ -11,3 +11,6 @@ tqdm
 shap
 matplotlib
 ipykernel
+python-dotenv
+groq
+tavily-python
