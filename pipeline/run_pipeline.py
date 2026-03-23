@@ -3,7 +3,7 @@ from services.features import build_feature_payload, normalize_domain
 from services.llm_service import build_support_with_llm
 from services.ml_inference import run_ml_inference
 from services.model_store import load_models
-
+from pprint import pprint
 
 load_dotenv()
 
@@ -38,12 +38,12 @@ def invokePipeline(title, domain_url, tweet_count):
     }
     
     
-title = "USA confirms that covid was all fake and none of that ever existed."
-domain = "reuters.com"
-tweets = 500
+# title = "USA confirms that covid was all fake and none of that ever existed."
+# domain = "reuters.com"
+# tweets = 500
     
-print(invokePipeline(
-    title=title,
-    domain_url=domain,
-    tweet_count=tweets
-))
+# pprint(invokePipeline(
+#     title=title,
+#     domain_url=domain,
+#     tweet_count=tweets
+# ))

@@ -54,7 +54,7 @@ def build_support_with_llm(title, domain, ml_result):
     ]
 
     first = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-120b",
         messages=first_messages,
         tools=tools,
         tool_choice="auto",

@@ -1,6 +1,7 @@
 import pickle
 from pathlib import Path
 
+import joblib
 import spacy
 from pgmpy.inference import VariableElimination
 from sentence_transformers import SentenceTransformer
@@ -14,19 +15,22 @@ MODELS_DIR = ROOT_DIR / "training" / "saved_models"
 _CACHE = None
 
 
+def _load_serialized(path):
+    try:
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    except Exception:
+        return joblib.load(path)
+
+
 def load_models():
     global _CACHE
     if _CACHE is not None:
         return _CACHE
 
-    with open(MODELS_DIR / "metadata.pkl", "rb") as f:
-        metadata = pickle.load(f)
-
-    with open(MODELS_DIR / "bn_model.pkl", "rb") as f:
-        bn_model = pickle.load(f)
-
-    with open(MODELS_DIR / "sentiment_model.pkl", "rb") as f:
-        sentiment_model = pickle.load(f)
+    metadata = _load_serialized(MODELS_DIR / "metadata.pkl")
+    bn_model = _load_serialized(MODELS_DIR / "bn_model.pkl")
+    sentiment_model = _load_serialized(MODELS_DIR / "sentiment_model.pkl")
 
     embedder = SentenceTransformer(str(MODELS_DIR / "sentence_transformer"))
 

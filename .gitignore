@@ -1,3 +1,4 @@
 .venv
 /training/saved_models
 .env
+*.env
