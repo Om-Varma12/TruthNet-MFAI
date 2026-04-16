@@ -7,22 +7,22 @@ An end-to-end AI-powered fake news verification pipeline. Takes a news headline,
 ## Architecture Overview
 
 ```
-Headline + Domain + Tweet Count
-        │
-        ▼
-┌─────────────────────────────────────────────┐
-│  1. Semantic Embedding (RoBERTa)            │
-│     sentence-transformers/all-roberta-large-v1
-│     → 1024-dim dense vector                │
-└──────────────────┬──────────────────────────┘
-                   │
-        ┌──────────▼──────────────────────────┐
-        │  2. Signal Extraction                │
-        │  • Source credibility score          │
-        │  • Sentiment (HuggingFace pipeline)  │
+                  Headline + Domain + Tweet Count
+                           │
+                           ▼
+        ┌─────────────────────────────────────────────┐
+        │  1. Semantic Embedding (RoBERTa)            │
+        │     sentence-transformers/all-roberta-large-v1
+        │     → 1024-dim dense vector                 │
+        └──────────────────┬──────────────────────────┘
+                           │
+        ┌──────────────────▼──────────────────┐
+        │  2. Signal Extraction               │
+        │  • Source credibility score         │
+        │  • Sentiment (HuggingFace pipeline) │
         │  • Clickbait word density           │
         │  • Trigger word density             │
-        │  • Writing style score (caps/!)      │
+        │  • Writing style score (caps/!)     │
         │  • Named-entity fact signal (spaCy) │
         └──────────┬──────────────────────────┘
                    │  1024-dim embed + 7 handcrafted features

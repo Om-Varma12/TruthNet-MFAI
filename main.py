@@ -377,6 +377,27 @@ code,pre,.mono      { font-family: 'Space Mono', monospace !important; }
 }
 .ev-source::before { content: '⬡'; font-size: 7px; }
 .ev-text { font-size: 12px; color: var(--subtext); line-height: 1.6; }
+.ev-link-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 10px; padding: 5px 12px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace !important; font-size: 9px;
+    letter-spacing: 1px; color: var(--subtext);
+    text-decoration: none; transition: border-color 0.15s, color 0.15s;
+}
+.ev-link-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── BN GRAPH ── */
+.bn-divider { height: 1px; background: rgba(255,255,255,0.04); margin: 18px 0; }
+.bn-caption {
+    font-size: 11px; color: var(--muted); margin-bottom: 14px;
+    line-height: 1.7; font-family: 'DM Sans', sans-serif !important;
+}
+.bn-caption code {
+    font-family: 'Space Mono', monospace !important; font-size: 10px;
+    background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px;
+}
 
 /* ── QUERY BADGE ── */
 .tn-query {
@@ -497,6 +518,7 @@ for _k, _v in [
     ("run_done", False),
     ("run_result", None),
     ("run_error", None),
+    ("show_bn", False),
 ]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
@@ -525,18 +547,20 @@ def run_analysis(headline, source, tweet_count):
     # evidence
     evidence = []
     for item in support.get("search_results", [])[:5]:
+        item_link = item.get("link", "")
         evidence.append({
             "type":   "support" if verdict == "REAL" else "contradict",
-            "source": item.get("title") or item.get("link") or "Web",
+            "source": item.get("title") or item_link or "Web",
             "text":   item.get("snippet") or "No snippet available.",
+            "link":   item_link,
         })
     reason = support.get("reason", "")
     if reason:
         evidence.append({"type": evidence[0]["type"] if evidence else "support",
-                         "source": "Model reasoning", "text": reason})
+                         "source": "Model reasoning", "text": reason, "link": ""})
     if not evidence:
         evidence.append({"type": "support", "source": "Pipeline",
-                         "text": "No external evidence returned."})
+                         "text": "No external evidence returned.", "link": ""})
 
     return {
         "verdict":       verdict,
@@ -587,18 +611,6 @@ with col:
 
     # ── SECTION 01: INPUT ──────────────────────
     st.markdown('<div class="tn-section-label">01 · News Signal Input</div>', unsafe_allow_html=True)
-
-    # Example headlines
-    st.markdown('<div class="examples-label">Try an example</div>', unsafe_allow_html=True)
-    pill_cols = st.columns(len(EXAMPLE_HEADLINES))
-    for idx, (desc, title, dom, tweets) in enumerate(EXAMPLE_HEADLINES):
-        with pill_cols[idx]:
-            if st.button(f"▶ {desc}", key=f"ex_{idx}", help=title):
-                st.session_state.ex_selected = (title, dom, tweets)
-
-    # Input fields
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-    st.markdown('<div class="tn-input-card">', unsafe_allow_html=True)
 
     ex = st.session_state.get("ex_selected")
     default_h = ex[0] if ex else ""
@@ -833,16 +845,42 @@ with col:
         st.markdown('<div class="tn-section-label" style="margin-bottom:12px">Web-Grounded Evidence</div>', unsafe_allow_html=True)
         for ev in res["evidence"]:
             tag = "SUPPORTS" if ev["type"] == "support" else "CONTRADICTS"
+            link_html = ""
+            if ev.get("link"):
+                link_html = f'<a href="{ev["link"]}" target="_blank" rel="noopener noreferrer" class="ev-link-btn">🔗 View Source</a>'
             st.markdown(
                 f'<div class="ev-card {ev["type"]}">'
                 f'<span class="ev-tag {ev["type"]}">{tag}</span>'
                 f'<div class="ev-source">{ev["source"]}</div>'
                 f'<div class="ev-text">{ev["text"]}</div>'
+                f'{link_html}'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+        # Bayesian Network structure viewer
+        bn_toggle = st.button("🧬  View Bayesian Network Structure", key="bn_toggle")
+        if bn_toggle:
+            st.session_state.show_bn = not st.session_state.get("show_bn", False)
+        if st.session_state.get("show_bn", False):
+            st.markdown('<div class="bn-divider"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="bn-caption">'
+                'Directed edges represent probabilistic dependencies. '
+                '<code>XGBPrediction</code>, <code>Credibility</code>, <code>Sentiment</code>, '
+                '<code>Clickbait</code>, and <code>FactSignal</code> all influence the '
+                'posterior probability of <code>RealNews</code>.'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            st.image("training/graph.png", caption="Bayesian Network Structure", use_container_width=True)
+            if st.button("🔼  Hide Graph", key="bn_hide"):
+                st.session_state.show_bn = False
+                st.rerun()
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         st.button("🔄  Analyze Another", key="reset_btn")
 
     st.markdown("<div style='height:50px'></div>", unsafe_allow_html=True)
