@@ -22,6 +22,13 @@ def invokePipeline(title, domain_url, tweet_count):
     ml_result = run_ml_inference(bundle=bundle, feature_payload=feature_payload)
     llm_part = build_support_with_llm(title=title, domain=domain, ml_result=ml_result)
 
+    final_verdict = llm_part.get("final_verdict", {
+        "label": "UNKNOWN",
+        "confidence": 0.0
+    })
+
+    print("[FINAL VERDICT]", final_verdict)
+
     support = {
         "label": ml_result["label"],
         "prob_real": ml_result["prob_real"],
@@ -33,7 +40,9 @@ def invokePipeline(title, domain_url, tweet_count):
     }
 
     return {
-        "is_real": ml_result["is_real"],
+        "label": final_verdict["label"],
+        "confidence": final_verdict["confidence"],
+        "is_real": final_verdict["label"] == "REAL",
         "support": support,
     }
     

@@ -3,3 +3,7 @@
 .env
 *.env
 things.md
+test.ipynb
+
+__pycache__/
+*.pyc

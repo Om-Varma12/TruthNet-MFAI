@@ -10,7 +10,7 @@ def run_ml_inference(bundle, feature_payload):
     bn_result = bundle["bn_infer"].query(variables=["RealNews"], evidence=evidence)
 
     print(f"[DEBUG] BN Result: {bn_result}")
-
+    
     prob_real = float(bn_result.values[1])
     prob_fake = 1.0 - prob_real
     label = "REAL" if prob_real > 0.5 else "FAKE"
@@ -36,9 +36,9 @@ def run_ml_inference(bundle, feature_payload):
 #     bundle = load_models()
 
 #     # Demo parameters
-#     demo_title = "Local government updates zoning regulations for urban areas"
-#     demo_domain = "gov.uk"
-#     demo_tweets = 5
+#     demo_title = "Scientists confirm that vaccines alter human DNA permanently"
+#     demo_domain = "reuters.com"
+#     demo_tweets = 500
 
 #     print(f"[DEBUG] Title: {demo_title}")
 #     print(f"[DEBUG] Domain: {demo_domain}")
