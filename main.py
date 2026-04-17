@@ -362,6 +362,7 @@ code,pre,.mono      { font-family: 'Space Mono', monospace !important; }
 .ev-card { border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; border: 1px solid; }
 .ev-card.support    { background: rgba(0,232,150,0.04);  border-color: rgba(0,232,150,0.14); }
 .ev-card.contradict { background: rgba(255,51,102,0.04); border-color: rgba(255,51,102,0.14); }
+.ev-card.web_result  { background: rgba(0,200,255,0.04); border-color: rgba(0,200,255,0.14); }
 .ev-tag {
     font-family: 'Space Mono', monospace !important;
     font-size: 8px; letter-spacing: 1.5px; padding: 2px 7px;
@@ -370,6 +371,7 @@ code,pre,.mono      { font-family: 'Space Mono', monospace !important; }
 }
 .ev-tag.support    { background: rgba(0,232,150,0.14); color: var(--green); }
 .ev-tag.contradict { background: rgba(255,51,102,0.14); color: var(--red); }
+.ev-tag.web_result { background: rgba(0,200,255,0.14); color: var(--cyan); }
 .ev-source {
     font-family: 'Space Mono', monospace !important;
     font-size: 9px; color: var(--muted); margin-bottom: 5px;
@@ -533,8 +535,11 @@ def run_analysis(headline, source, tweet_count):
         tweet_count=tweet_count,
     )
     support = backend.get("support", {})
-    verdict = support.get("label", "REAL")
+    # Use LLM's final verdict from backend as the authoritative verdict
+    verdict = backend.get("label", "REAL")
     prob_real = _clamp(support.get("prob_real", 0.5))
+    # Use LLM's confidence directly
+    confidence = backend.get("confidence", 0.5)
 
     ms = support.get("model_signals", {})
 
@@ -544,28 +549,28 @@ def run_analysis(headline, source, tweet_count):
     credibility    = _clamp(ms.get("credibility_score", 0.5))
     viral          = _clamp(float(ms.get("tweet_count", tweet_count)) / 20000.0)
 
-    # evidence
+    # evidence — shown as neutral web results, not classified as support/contradict
     evidence = []
     for item in support.get("search_results", [])[:5]:
         item_link = item.get("link", "")
         evidence.append({
-            "type":   "support" if verdict == "REAL" else "contradict",
+            "type":   "web_result",
             "source": item.get("title") or item_link or "Web",
             "text":   item.get("snippet") or "No snippet available.",
             "link":   item_link,
         })
-    reason = support.get("reason", "")
-    if reason:
-        evidence.append({"type": evidence[0]["type"] if evidence else "support",
-                         "source": "Model reasoning", "text": reason, "link": ""})
     if not evidence:
-        evidence.append({"type": "support", "source": "Pipeline",
+        evidence.append({"type": "web_result", "source": "Pipeline",
                          "text": "No external evidence returned.", "link": ""})
+
+    # model_breakdown — get actual XGB prediction and BN probability from model_signals
+    xgb_pred = ms.get("xgb_prediction", 1)  # 0=FAKE, 1=REAL
+    bn_prob_real = prob_real
 
     return {
         "verdict":       verdict,
         "probability":   prob_real,
-        "confidence":    round(abs(prob_real - 0.5) * 2.0, 3),
+        "confidence":    confidence,
         "signals": {
             "source_credibility": round(credibility, 2),
             "sentiment_score":     round(sentiment, 2),
@@ -575,8 +580,8 @@ def run_analysis(headline, source, tweet_count):
         "search_query":  support.get("generated_query", ""),
         "evidence":      evidence,
         "model_breakdown": {
-            "xgboost": prob_real,
-            "bayesian": prob_real,
+            "xgboost": xgb_pred,        # 0 or 1 (FAKE/REAL)
+            "bayesian": bn_prob_real,   # P(real) from BN
         },
     }
 
@@ -765,19 +770,26 @@ with col:
         }
 
         # Verdict card
+        conf_pct = round(conf * 100, 1)
+        if verdict == "REAL":
+            verdict_sub = f"High credibility signals — {conf_pct}% confidence the story is factual."
+            ring_val = prob
+            ring_label = f"{round(prob*100,1)}% real"
+        else:
+            verdict_sub = f"Multiple deception signals detected — {conf_pct}% confidence this is misinformation."
+            ring_val = fake_p
+            ring_label = f"{round(fake_p*100,1)}% fake"
         st.markdown(
             f'<div class="tn-verdict {vclass}">'
             f'<div class="tn-verdict-inner">'
             f'<div class="tn-verdict-text">'
             f'<div class="tn-verdict-eyebrow {vclass}">◉ VERDICT</div>'
             f'<div class="tn-verdict-title {vclass}">{emoji} {verdict}</div>'
-            f'<div class="tn-verdict-sub">'
-            f'{"High credibility signals — story appears factual." if verdict=="REAL" else "Multiple deception signals detected — likely misinformation."}'
-            f'</div>'
+            f'<div class="tn-verdict-sub">{verdict_sub}</div>'
             f'</div>'
             f'<div class="ring-wrap">'
-            f'{ring_svg(prob, color)}'
-            f'<div class="ring-pct" style="color:{color}">{round(prob*100,1)}% real</div>'
+            f'{ring_svg(ring_val, color)}'
+            f'<div class="ring-pct" style="color:{color}">{ring_label}</div>'
             f'</div>'
             f'</div>'
             f'</div>',
@@ -803,11 +815,14 @@ with col:
         )
 
         # Right: model breakdown
+        xgb_val = "REAL" if mb["xgboost"] == 1 else "FAKE"
+        xgb_color = "#00E896" if mb["xgboost"] == 1 else "#FF3366"
+        bn_val = f"{round(mb['bayesian']*100,1)}%"
         st.markdown(
             '<div class="tn-panel">'
             '<div class="panel-label">Model Breakdown</div>'
-            f'<div class="model-row"><span class="model-key">XGBoost</span><span class="model-val" style="color:{color}">{round(mb["xgboost"]*100,1)}%</span></div>'
-            f'<div class="model-row"><span class="model-key">Bayesian Net</span><span class="model-val" style="color:{color}">{round(mb["bayesian"]*100,1)}%</span></div>'
+            f'<div class="model-row"><span class="model-key">XGBoost</span><span class="model-val" style="color:{xgb_color}">{xgb_val}</span></div>'
+            f'<div class="model-row"><span class="model-key">Bayesian Net</span><span class="model-val" style="color:{color}">{bn_val}</span></div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -844,13 +859,13 @@ with col:
         # Evidence
         st.markdown('<div class="tn-section-label" style="margin-bottom:12px">Web-Grounded Evidence</div>', unsafe_allow_html=True)
         for ev in res["evidence"]:
-            tag = "SUPPORTS" if ev["type"] == "support" else "CONTRADICTS"
+            tag = "WEB RESULT"
             link_html = ""
             if ev.get("link"):
                 link_html = f'<a href="{ev["link"]}" target="_blank" rel="noopener noreferrer" class="ev-link-btn">🔗 View Source</a>'
             st.markdown(
-                f'<div class="ev-card {ev["type"]}">'
-                f'<span class="ev-tag {ev["type"]}">{tag}</span>'
+                f'<div class="ev-card web_result">'
+                f'<span class="ev-tag web_result">{tag}</span>'
                 f'<div class="ev-source">{ev["source"]}</div>'
                 f'<div class="ev-text">{ev["text"]}</div>'
                 f'{link_html}'

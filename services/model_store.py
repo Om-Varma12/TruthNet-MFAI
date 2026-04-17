@@ -10,7 +10,7 @@ import torch
 from unittest.mock import patch
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-MODELS_DIR = ROOT_DIR / "training" / "saved_models"
+MODELS_DIR = ROOT_DIR / "training" / "saved_models"  # ← retrained models (no oversampling)
 
 
 _CACHE = None
