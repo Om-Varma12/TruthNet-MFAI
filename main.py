@@ -5,8 +5,8 @@ import time as _time
 from pipeline.run_pipeline import invokePipeline
 
 st.set_page_config(
-    page_title="TruthNet · Fake News Verifier",
-    page_icon="🔍",
+    page_title="TruthNet · Neural Verifier",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -23,431 +23,620 @@ EXAMPLE_HEADLINES = [
 ]
 
 # ─────────────────────────────────────────────
-#  STYLE
+#  NEURAL INTERFACE — White Theme CSS
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
+/* ── CSS VARIABLES ── */
 :root {
-    --bg:       #080C18;
-    --surface:  rgba(255,255,255,0.025);
-    --border:   rgba(255,255,255,0.07);
-    --cyan:     #00C8FF;
-    --green:    #00E896;
-    --red:      #FF3366;
-    --text:     #E2E8F0;
-    --muted:    #475569;
-    --subtext:  #94A3B8;
+    --bg:            #F7F8FC;
+    --surface:       rgba(255,255,255,0.92);
+    --surface-hover: rgba(255,255,255,1);
+    --glass:         rgba(255,255,255,0.65);
+    --border:        rgba(15,23,42,0.08);
+    --border-hover:  rgba(15,23,42,0.15);
+    --shadow-sm:     0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-md:     0 4px 16px rgba(15,23,42,0.08), 0 2px 6px rgba(15,23,42,0.04);
+    --shadow-lg:     0 12px 40px rgba(15,23,42,0.10), 0 4px 16px rgba(15,23,42,0.06);
+    --shadow-glow:   0 0 0 1px rgba(99,102,241,0.15), 0 4px 20px rgba(99,102,241,0.08);
+
+    --text-primary:  #0F172A;
+    --text-secondary:#475569;
+    --text-muted:   #94A3B8;
+    --text-faint:   #CBD5E1;
+
+    --accent:        #6366F1;
+    --accent-light:  rgba(99,102,241,0.08);
+    --accent-glow:   rgba(99,102,241,0.20);
+
+    --green:         #10B981;
+    --green-light:   rgba(16,185,129,0.08);
+    --green-border:  rgba(16,185,129,0.20);
+
+    --red:           #EF4444;
+    --red-light:     rgba(239,68,68,0.08);
+    --red-border:    rgba(239,68,68,0.20);
+
+    --cyan:          #06B6D4;
+    --cyan-light:    rgba(6,182,212,0.08);
+
+    --grid-color:    rgba(15,23,42,0.04);
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body,
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"] {
     background: var(--bg) !important;
-    color: var(--text) !important;
+    background-image:
+        radial-gradient(circle at 20% 20%, rgba(99,102,241,0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(6,182,212,0.03) 0%, transparent 50%),
+        linear-gradient(rgba(15,23,42,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,23,42,0.015) 1px, transparent 1px) !important;
+    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px !important;
+    color: var(--text-primary) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 80% 50% at 15% -5%,  rgba(0,200,255,0.07) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 40% at 85% 105%, rgba(255,51,102,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 10% 0%, rgba(99,102,241,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 90% 100%, rgba(6,182,212,0.03) 0%, transparent 60%),
         var(--bg) !important;
 }
 
 [data-testid="stSidebar"],
-#MainMenu, footer, header,
-.stDeployButton { display: none !important; }
+#MainMenu, footer, header, .stDeployButton { display: none !important; }
 
-::-webkit-scrollbar        { width: 4px; }
-::-webkit-scrollbar-track  { background: #0D1220; }
-::-webkit-scrollbar-thumb  { background: #1E3A5F; border-radius: 2px; }
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.20); }
 
-/* typography */
-h1,h2,h3,h4,h5,h6  { font-family: 'Syne', sans-serif !important; }
-p,span,div,label   { font-family: 'DM Sans', sans-serif !important; }
-code,pre,.mono      { font-family: 'Space Mono', monospace !important; }
+/* ── TYPOGRAPHY ── */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+p, span, div, label, input, textarea {
+    font-family: 'DM Sans', sans-serif !important;
+}
+code, pre, .mono {
+    font-family: 'JetBrains Mono', monospace !important;
+}
 
-/* columns padding */
-[data-testid="column"] { padding: 0 4px !important; }
-.stMarkdown             { margin: 0 !important; }
+/* ── COLUMN PADDING ── */
+[data-testid="column"] { padding: 0 6px !important; }
+.stMarkdown { margin: 0 !important; }
 [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
 
 /* ── HEADER ── */
-.tn-header {
-    padding: 44px 24px 36px;
-    border-bottom: 1px solid var(--border);
+.neural-header {
+    padding: 48px 24px 40px;
     text-align: center;
     position: relative;
+    animation: fadeSlideDown 0.8s cubic-bezier(0.16,1,0.3,1) both;
 }
-.tn-header::before {
+.neural-header::before {
     content: '';
     position: absolute; inset: 0;
-    background: repeating-linear-gradient(
-        0deg, transparent, transparent 39px,
-        rgba(255,255,255,0.012) 39px, rgba(255,255,255,0.012) 40px
-    );
+    background-image:
+        linear-gradient(rgba(15,23,42,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,23,42,0.025) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
     pointer-events: none;
 }
-.tn-logo-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 6px; }
-.tn-logo-icon {
-    width: 42px; height: 42px;
-    background: linear-gradient(135deg, #0066FF, #00C8FF);
-    border-radius: 10px;
+.neural-logo-row {
+    display: inline-flex; align-items: center; gap: 16px;
+    position: relative;
+}
+.neural-logo-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%);
+    border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 0 20px rgba(0,200,255,0.35);
+    font-size: 24px;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.30), 0 2px 8px rgba(99,102,241,0.20);
     flex-shrink: 0;
+    animation: floatBadge 3s ease-in-out infinite;
 }
-.tn-brand {
-    font-family: 'Syne', sans-serif !important;
-    font-size: 30px; font-weight: 800; letter-spacing: -0.5px;
-    background: linear-gradient(90deg, #FFFFFF 0%, #7EB8D4 100%);
+@keyframes floatBadge {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-3px); }
+}
+.neural-brand {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 38px; font-weight: 700; letter-spacing: -1px;
+    background: linear-gradient(135deg, #0F172A 0%, #6366F1 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
 }
-.tn-version {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 10px; color: var(--cyan);
-    background: rgba(0,200,255,0.08);
-    border: 1px solid rgba(0,200,255,0.2);
-    padding: 3px 8px; border-radius: 4px; margin-left: 2px;
-    letter-spacing: 1px; vertical-align: middle;
+.neural-version {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid var(--accent-glow);
+    padding: 3px 8px; border-radius: 20px; margin-left: 4px;
+    letter-spacing: 1.5px; vertical-align: middle;
 }
-.tn-tagline {
-    font-size: 13px; color: #64748B; margin-top: 6px; letter-spacing: 0.2px;
+.neural-tagline {
+    font-size: 14px; color: var(--text-secondary); margin-top: 8px;
+    letter-spacing: 0.3px; font-weight: 300;
 }
 
 /* ── SECTION LABEL ── */
-.tn-section-label {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 9px; letter-spacing: 2.5px; color: var(--muted);
-    text-transform: uppercase; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 10px;
+.neural-section-label {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px; letter-spacing: 3px; color: var(--text-muted);
+    text-transform: uppercase; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+    animation: fadeSlideDown 0.8s cubic-bezier(0.16,1,0.3,1) both;
 }
-.tn-section-label::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.05); }
+.neural-section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(15,23,42,0.08), transparent);
+}
 
 /* ── INPUT CARD ── */
-.tn-input-card {
+.neural-input-card {
     background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border);
-    border-radius: 16px; padding: 24px 28px; margin-bottom: 18px;
+    border-radius: 20px;
+    padding: 28px 32px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-md);
+    animation: fadeSlideUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.1s both;
 }
 .input-label {
-    font-size: 11px; font-weight: 500; color: var(--subtext);
+    font-size: 11px; font-weight: 500; color: var(--text-secondary);
     letter-spacing: 0.5px; margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace !important;
+    text-transform: uppercase;
 }
 
-/* streamlit overrides */
+/* ── STREAMLIT OVERRIDES ── */
 [data-testid="stTextArea"] textarea,
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input {
-    background: rgba(255,255,255,0.04) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 10px !important;
-    color: var(--text) !important;
+    background: rgba(255,255,255,0.80) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    color: var(--text-primary) !important;
     font-family: 'DM Sans', sans-serif !important;
     font-size: 14px !important;
-    transition: border-color 0.2s, box-shadow 0.2s !important;
+    padding: 12px 16px !important;
+    transition: all 0.25s cubic-bezier(0.16,1,0.3,1) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 [data-testid="stTextArea"] textarea:focus,
 [data-testid="stTextInput"] input:focus,
 [data-testid="stNumberInput"] input:focus {
-    border-color: rgba(0,200,255,0.45) !important;
-    box-shadow: 0 0 0 3px rgba(0,200,255,0.08) !important;
+    border-color: rgba(15,23,42,0.25) !important;
+    box-shadow: 0 0 0 3px rgba(15,23,42,0.06) !important;
+    background: #ffffff !important;
     outline: none !important;
+}
+[data-testid="stTextArea"] textarea {
+    resize: none !important;
+    min-height: 120px !important;
 }
 [data-testid="stTextArea"] label,
 [data-testid="stTextInput"] label,
 [data-testid="stNumberInput"] label {
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: 11px !important; font-weight: 500 !important;
-    color: var(--subtext) !important; letter-spacing: 0.4px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px !important; font-weight: 500 !important;
+    color: var(--text-muted) !important; letter-spacing: 1.5px !important;
+    text-transform: uppercase !important; margin-bottom: 6px !important;
 }
 
-/* ── BUTTONS ── */
-.btn-primary[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #0066FF 0%, #00C8FF 100%) !important;
-    color: #fff !important; border: none !important;
-    border-radius: 10px !important;
-    font-family: 'Syne', sans-serif !important; font-weight: 700 !important;
-    font-size: 14px !important; letter-spacing: 0.5px !important;
-    padding: 13px 28px !important; width: 100% !important;
-    cursor: pointer !important;
-    box-shadow: 0 4px 20px rgba(0,102,255,0.3) !important;
-    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s !important;
-}
-.btn-primary[data-testid="stButton"] > button:hover {
-    opacity: 0.9 !important; transform: translateY(-1px) !important;
-    box-shadow: 0 6px 28px rgba(0,102,255,0.45) !important;
-}
-
-.btn-ghost[data-testid="stButton"] > button {
-    background: transparent !important; color: var(--subtext) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
+/* ── BUTTONS — clean white-theme buttons ── */
+[data-testid="stMain"] [data-testid="stButton"] > button {
+    border-radius: 12px !important;
     font-family: 'DM Sans', sans-serif !important;
-    font-size: 12px !important; font-weight: 500 !important;
-    padding: 8px 16px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    letter-spacing: 0.3px !important;
+    padding: 13px 28px !important;
+    border: 1.5px solid rgba(15,23,42,0.15) !important;
+    background: #ffffff !important;
+    color: #0F172A !important;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04) !important;
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1) !important;
     cursor: pointer !important;
-    transition: border-color 0.2s, color 0.2s !important;
+    width: 100% !important;
 }
-.btn-ghost[data-testid="stButton"] > button:hover {
-    border-color: rgba(0,200,255,0.3) !important;
-    color: var(--cyan) !important;
+[data-testid="stMain"] [data-testid="stButton"] > button:hover {
+    border-color: rgba(15,23,42,0.30) !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.10), 0 2px 4px rgba(15,23,42,0.06) !important;
+    transform: translateY(-1px) !important;
+    color: #0F172A !important;
+}
+[data-testid="stMain"] [data-testid="stButton"] > button:active {
+    transform: translateY(0px) !important;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.06) !important;
 }
 
 /* ── EXAMPLE PILLS ── */
 .examples-label {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 9px; letter-spacing: 2px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; letter-spacing: 2px; color: var(--text-muted);
     text-transform: uppercase; margin-bottom: 10px;
 }
 .example-pill {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 20px; padding: 5px 12px;
-    font-size: 11px; color: var(--subtext);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 11px; color: var(--text-secondary);
     cursor: pointer; margin: 3px;
-    transition: border-color 0.15s, color 0.15s;
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+    box-shadow: var(--shadow-sm);
 }
-.example-pill:hover { border-color: rgba(0,200,255,0.3); color: var(--cyan); }
+.example-pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
+}
 
 /* ── PIPELINE ── */
-.tn-pipeline {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 24px 28px; margin-bottom: 18px;
+.neural-pipeline {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-md);
 }
-.tn-pipeline-header {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 9px; letter-spacing: 2.5px; color: var(--cyan);
+.neural-pipeline-header {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px; letter-spacing: 3px; color: var(--accent);
     text-transform: uppercase; margin-bottom: 20px;
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 10px;
 }
 .blink-dot {
-    display: inline-block; width: 6px; height: 6px;
-    border-radius: 50%; background: var(--cyan);
-    animation: blink 1s ease-in-out infinite;
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent);
+    animation: pulseDot 1.4s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(99,102,241,0.5);
 }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.1} }
+@keyframes pulseDot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(99,102,241,0.5); }
+    50% { opacity: 0.4; box-shadow: 0 0 2px rgba(99,102,241,0.2); }
+}
 
-.tn-pipeline-track {
+.neural-pipeline-track {
     display: flex; flex-direction: column; gap: 0;
     position: relative;
 }
-.tn-pipeline-track::before {
-    content: ''; position: absolute; left: 15px; top: 18px; bottom: 18px;
-    width: 1px;
-    background: linear-gradient(to bottom, rgba(0,200,255,0.2), rgba(255,51,102,0.2));
+.neural-pipeline-track::before {
+    content: ''; position: absolute;
+    left: 15px; top: 20px; bottom: 20px; width: 1px;
+    background: linear-gradient(to bottom, var(--accent), rgba(99,102,241,0.2));
 }
-.tn-step { display: flex; align-items: center; gap: 14px; padding: 9px 0; }
-.tn-step-dot {
+.neural-step {
+    display: flex; align-items: center; gap: 14px; padding: 10px 0;
+}
+.neural-step-dot {
     width: 30px; height: 30px; border-radius: 50%;
-    background: #0D1220; border: 2px solid rgba(255,255,255,0.07);
+    background: var(--bg); border: 2px solid var(--border);
     display: flex; align-items: center; justify-content: center;
     font-size: 12px; flex-shrink: 0; position: relative; z-index: 1;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
 }
-.tn-step-dot.done   { border-color: var(--green); background: rgba(0,232,150,0.08); }
-.tn-step-dot.active {
-    border-color: var(--cyan); background: rgba(0,200,255,0.1);
-    animation: pulse-step 1.2s ease-in-out infinite;
+.neural-step-dot.done {
+    border-color: var(--green);
+    background: var(--green-light);
+    box-shadow: 0 0 12px rgba(16,185,129,0.25);
 }
-@keyframes pulse-step {
-    0%,100%{ box-shadow: 0 0 6px rgba(0,200,255,0.3); }
-    50%    { box-shadow: 0 0 20px rgba(0,200,255,0.65); }
+.neural-step-dot.active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: 0 0 16px rgba(99,102,241,0.30);
+    animation: stepPulse 1.2s ease-in-out infinite;
 }
-.tn-step-dot.pending { opacity: 0.2; }
-.tn-step-name {
-    font-size: 12px; font-weight: 500; color: var(--subtext);
+@keyframes stepPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(99,102,241,0.30); }
+    50% { box-shadow: 0 0 24px rgba(99,102,241,0.50); }
+}
+.neural-step-dot.pending { opacity: 0.25; }
+.neural-step-name {
+    font-size: 13px; font-weight: 500; color: var(--text-secondary);
     transition: color 0.2s;
 }
-.tn-step-name.done   { color: var(--subtext); }
-.tn-step-name.active { color: var(--cyan); }
-.tn-step-label {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 8px; letter-spacing: 1px; margin-left: auto;
+.neural-step-name.done { color: var(--text-primary); }
+.neural-step-name.active { color: var(--accent); font-weight: 600; }
+.neural-step-label {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 8px; letter-spacing: 1.5px; margin-left: auto;
+    font-weight: 400;
 }
-.tn-step-label.done   { color: var(--green); }
-.tn-step-label.active { color: var(--cyan); }
+.neural-step-label.done { color: var(--green); }
+.neural-step-label.active { color: var(--accent); }
 
 /* ── VERDICT CARD ── */
-.tn-verdict {
-    border-radius: 16px; padding: 26px 28px; margin-bottom: 18px;
+.neural-verdict {
+    border-radius: 20px; padding: 28px 32px; margin-bottom: 16px;
     position: relative; overflow: hidden;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-lg);
+    animation: fadeSlideUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s both;
 }
-.tn-verdict.real { background: rgba(0,232,150,0.05); border: 1px solid rgba(0,232,150,0.18); }
-.tn-verdict.fake { background: rgba(255,51,102,0.05); border: 1px solid rgba(255,51,102,0.18); }
-.tn-verdict::before {
-    content: ''; position: absolute; top: -36px; right: -36px;
-    width: 130px; height: 130px; border-radius: 50%; opacity: 0.06;
+.neural-verdict.real {
+    background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.02));
+    border: 1px solid var(--green-border);
 }
-.tn-verdict.real::before { background: var(--green); }
-.tn-verdict.fake::before  { background: var(--red); }
-.tn-verdict-inner { display: flex; align-items: center; gap: 20px; }
-.tn-verdict-text  { flex: 1; }
-.tn-verdict-eyebrow {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 9px; letter-spacing: 2.5px; margin-bottom: 6px;
+.neural-verdict.fake {
+    background: linear-gradient(135deg, rgba(239,68,68,0.06), rgba(239,68,68,0.02));
+    border: 1px solid var(--red-border);
 }
-.tn-verdict-eyebrow.real { color: var(--green); }
-.tn-verdict-eyebrow.fake { color: var(--red); }
-.tn-verdict-title {
-    font-family: 'Syne', sans-serif !important;
-    font-size: 34px; font-weight: 800; letter-spacing: -1px;
-    line-height: 1; margin-bottom: 6px;
+.neural-verdict::before {
+    content: ''; position: absolute; top: -60px; right: -60px;
+    width: 180px; height: 180px; border-radius: 50%; opacity: 0.04;
 }
-.tn-verdict-title.real { color: var(--green); }
-.tn-verdict-title.fake { color: var(--red); }
-.tn-verdict-sub {
-    font-size: 12px; color: var(--subtext); margin-top: 4px;
+.neural-verdict.real::before { background: var(--green); }
+.neural-verdict.fake::before { background: var(--red); }
+
+.neural-verdict-inner { display: flex; align-items: center; gap: 24px; }
+.neural-verdict-text { flex: 1; }
+.neural-verdict-eyebrow {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; letter-spacing: 3px; margin-bottom: 8px;
+    font-weight: 500;
+}
+.neural-verdict-eyebrow.real { color: var(--green); }
+.neural-verdict-eyebrow.fake { color: var(--red); }
+.neural-verdict-title {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 42px; font-weight: 700; letter-spacing: -1px;
+    line-height: 1; margin-bottom: 8px;
+}
+.neural-verdict-title.real { color: var(--green); }
+.neural-verdict-title.fake { color: var(--red); }
+.neural-verdict-sub {
+    font-size: 13px; color: var(--text-secondary); margin-top: 4px;
+    font-weight: 300; line-height: 1.5;
 }
 
 /* ── PROBABILITY RING ── */
-.ring-wrap { text-align: right; flex-shrink: 0; }
-.ring-pct {
-    font-family: 'Syne', sans-serif !important;
-    font-size: 13px; font-weight: 800; margin-top: 5px;
+.ring-wrap { text-align: center; flex-shrink: 0; }
+.ring-pct-label {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px; letter-spacing: 1px; margin-top: 6px;
 }
 
 /* ── TWO COL PANELS ── */
-.tn-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
-.tn-panel {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 18px 20px;
+.neural-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+.neural-panel {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 24px;
+    box-shadow: var(--shadow-md);
 }
 .panel-label {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 8px; letter-spacing: 2px; color: var(--muted);
-    text-transform: uppercase; margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; letter-spacing: 3px; color: var(--text-muted);
+    text-transform: uppercase; margin-bottom: 16px;
 }
 
 /* prob bars */
 .prob-row { margin: 10px 0; }
 .prob-row-head {
-    display: flex; justify-content: space-between; margin-bottom: 5px;
-    font-family: 'Space Mono', monospace !important; font-size: 10px;
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace !important; font-size: 10px;
 }
 .prob-bar-bg {
-    height: 5px; background: rgba(255,255,255,0.05);
-    border-radius: 99px; overflow: hidden;
+    height: 6px; background: rgba(15,23,42,0.06);
+    border-radius: 3px; overflow: hidden;
 }
-.prob-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-.prob-bar-fill.real { background: linear-gradient(90deg, #00C896, var(--green)); }
-.prob-bar-fill.fake { background: linear-gradient(90deg, #FF1A4F, var(--red)); }
+.prob-bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+.prob-bar-fill.real { background: linear-gradient(90deg, #10B981, #34D399); }
+.prob-bar-fill.fake { background: linear-gradient(90deg, #EF4444, #F87171); }
 
 /* model breakdown rows */
-.model-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
-.model-row + .model-row { border-top: 1px solid rgba(255,255,255,0.04); }
-.model-key { font-family: 'Space Mono', monospace !important; font-size: 9px; color: var(--muted); letter-spacing: 1px; }
-.model-val { font-family: 'Syne', sans-serif !important; font-size: 22px; font-weight: 700; }
+.model-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0;
+}
+.model-row + .model-row { border-top: 1px solid var(--border); }
+.model-key {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; color: var(--text-muted); letter-spacing: 1px;
+}
+.model-val {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
+}
 
 /* ── SIGNAL CHIPS ── */
-.tn-chips { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 18px; }
-.tn-chip {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 14px;
+.neural-chips { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+.neural-chip {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
 }
-.tn-chip-name {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 7px; letter-spacing: 1.5px; color: var(--muted);
+.neural-chip:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+.neural-chip-name {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 8px; letter-spacing: 2px; color: var(--text-muted);
     text-transform: uppercase; margin-bottom: 10px;
 }
-.tn-chip-bar { height: 3px; background: rgba(255,255,255,0.05); border-radius: 99px; margin-bottom: 8px; overflow: hidden; }
-.tn-chip-fill { height: 100%; border-radius: 99px; }
-.tn-chip-val { font-family: 'Syne', sans-serif !important; font-size: 16px; font-weight: 700; }
+.neural-chip-bar {
+    height: 4px; background: rgba(15,23,42,0.06);
+    border-radius: 2px; margin-bottom: 8px; overflow: hidden;
+}
+.neural-chip-fill { height: 100%; border-radius: 2px; }
+.neural-chip-val {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 18px; font-weight: 700; letter-spacing: -0.5px;
+}
 
 /* ── EVIDENCE ── */
-.tn-evidence { margin-bottom: 14px; }
-.ev-card { border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; border: 1px solid; }
-.ev-card.support    { background: rgba(0,232,150,0.04);  border-color: rgba(0,232,150,0.14); }
-.ev-card.contradict { background: rgba(255,51,102,0.04); border-color: rgba(255,51,102,0.14); }
-.ev-card.web_result  { background: rgba(0,200,255,0.04); border-color: rgba(0,200,255,0.14); }
+.neural-evidence { margin-bottom: 16px; }
+.ev-card {
+    border-radius: 14px; padding: 16px 20px; margin-bottom: 8px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+.ev-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-glow);
+}
+.ev-card.web_result {
+    background: linear-gradient(135deg, rgba(99,102,241,0.03), rgba(99,102,241,0.01));
+    border-color: rgba(99,102,241,0.12);
+}
 .ev-tag {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 8px; letter-spacing: 1.5px; padding: 2px 7px;
-    border-radius: 3px; display: inline-block; margin-bottom: 8px;
-    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 8px; letter-spacing: 2px; padding: 2px 8px;
+    border-radius: 4px; display: inline-block; margin-bottom: 8px;
+    text-transform: uppercase; font-weight: 500;
 }
-.ev-tag.support    { background: rgba(0,232,150,0.14); color: var(--green); }
-.ev-tag.contradict { background: rgba(255,51,102,0.14); color: var(--red); }
-.ev-tag.web_result { background: rgba(0,200,255,0.14); color: var(--cyan); }
+.ev-tag.web_result { background: var(--accent-light); color: var(--accent); }
 .ev-source {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 9px; color: var(--muted); margin-bottom: 5px;
-    display: flex; align-items: center; gap: 5px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; color: var(--text-muted); margin-bottom: 6px;
+    letter-spacing: 0.5px;
 }
-.ev-source::before { content: '⬡'; font-size: 7px; }
-.ev-text { font-size: 12px; color: var(--subtext); line-height: 1.6; }
+.ev-text { font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
 .ev-link-btn {
     display: inline-flex; align-items: center; gap: 5px;
     margin-top: 10px; padding: 5px 12px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    font-family: 'Space Mono', monospace !important; font-size: 9px;
-    letter-spacing: 1px; color: var(--subtext);
-    text-decoration: none; transition: border-color 0.15s, color 0.15s;
+    background: rgba(255,255,255,0.70);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; letter-spacing: 0.5px; color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
 }
-.ev-link-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.ev-link-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── BN GRAPH ── */
-.bn-divider { height: 1px; background: rgba(255,255,255,0.04); margin: 18px 0; }
+.bn-divider { height: 1px; background: var(--border); margin: 20px 0; }
 .bn-caption {
-    font-size: 11px; color: var(--muted); margin-bottom: 14px;
+    font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;
     line-height: 1.7; font-family: 'DM Sans', sans-serif !important;
 }
 .bn-caption code {
-    font-family: 'Space Mono', monospace !important; font-size: 10px;
-    background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px; background: rgba(15,23,42,0.05);
+    padding: 1px 5px; border-radius: 3px; color: var(--accent);
 }
 
 /* ── QUERY BADGE ── */
-.tn-query {
-    display: flex; align-items: flex-start; gap: 12px;
-    background: rgba(0,102,255,0.05); border: 1px solid rgba(0,102,255,0.18);
-    border-radius: 10px; padding: 13px 16px; margin-bottom: 18px;
+.neural-query {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: var(--accent-light);
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;
 }
-.tn-query-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
-.tn-query-label {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 8px; letter-spacing: 1.5px; color: #4A90E2;
+.neural-query-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.neural-query-label {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 8px; letter-spacing: 2px; color: var(--accent);
     text-transform: uppercase; margin-bottom: 4px;
 }
-.tn-query-text { font-size: 12px; color: var(--subtext); font-style: italic; }
+.neural-query-text {
+    font-size: 12px; color: var(--text-secondary);
+    font-style: italic; font-family: 'DM Sans', sans-serif !important;
+}
 
 /* ── RECENT ── */
-.tn-recent-item {
-    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-    border-radius: 8px; margin-bottom: 6px;
-    background: var(--surface); border: 1px solid var(--border);
+.neural-recent-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 12px; margin-bottom: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
 }
-.tn-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.tn-dot.real { background: var(--green); }
-.tn-dot.fake { background: var(--red); }
-.tn-recent-hl {
-    font-size: 11px; color: var(--muted); flex: 1;
+.neural-recent-item:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+.neural-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.neural-dot.real { background: var(--green); box-shadow: 0 0 8px rgba(16,185,129,0.4); }
+.neural-dot.fake { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+.neural-recent-hl {
+    font-size: 12px; color: var(--text-secondary); flex: 1;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tn-recent-pct { font-family: 'Space Mono', monospace !important; font-size: 9px; flex-shrink: 0; }
-.tn-recent-pct.real { color: var(--green); }
-.tn-recent-pct.fake { color: var(--red); }
+.neural-recent-pct {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px; flex-shrink: 0; font-weight: 500;
+}
+.neural-recent-pct.real { color: var(--green); }
+.neural-recent-pct.fake { color: var(--red); }
 
 /* ── DIVIDER ── */
-.tn-divider { height: 1px; background: rgba(255,255,255,0.04); margin: 22px 0; }
+.neural-divider { height: 1px; background: var(--border); margin: 24px 0; }
 
 /* ── SPINNER ── */
 [data-testid="stSpinner"] > div {
-    border-color: rgba(0,200,255,0.2) !important;
-    border-top-color: var(--cyan) !important;
+    border-color: rgba(99,102,241,0.15) !important;
+    border-top-color: var(--accent) !important;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-in {
+    animation: fadeSlideUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
 }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 640px) {
-    .tn-chips   { grid-template-columns: repeat(2,1fr) !important; }
-    .tn-two-col { grid-template-columns: 1fr !important; }
+    .neural-chips { grid-template-columns: repeat(2,1fr) !important; }
+    .neural-two-col { grid-template-columns: 1fr !important; }
+    .neural-header { padding: 32px 16px 28px; }
+    .neural-brand { font-size: 28px; }
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────
 #  HELPERS
@@ -457,52 +646,54 @@ def _clamp(v, lo=0.0, hi=1.0, default=0.5):
     except: return default
 
 
-def ring_svg(pct, color, size=68):
-    r = 24; circ = 2 * 3.14159 * r
+def ring_svg(pct, color, size=80):
+    r = 26; circ = 2 * 3.14159 * r
     filled = circ * pct; gap = circ - filled
     lbl = f"{round(pct*100)}%"
     return (
-        f'<svg width="{size}" height="{size}" viewBox="0 0 68 68">'
-        f'<circle cx="34" cy="34" r="{r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>'
-        f'<circle cx="34" cy="34" r="{r}" fill="none" stroke="{color}" stroke-width="6" '
-        f'stroke-dasharray="{filled:.1f} {gap:.1f}" stroke-dashoffset="{circ/4:.1f}" stroke-linecap="round"'
-        f' transform="rotate(-90 34 34)"/>'
-        f'<text x="34" y="34" dominant-baseline="central" text-anchor="middle" '
-        f'fill="{color}" font-size="10" font-weight="800" font-family="Syne,sans-serif">{lbl}</text>'
+        f'<svg width="{size}" height="{size}" viewBox="0 0 80 80">'
+        f'<circle cx="40" cy="40" r="{r}" fill="none" stroke="rgba(15,23,42,0.06)" stroke-width="8"/>'
+        f'<circle cx="40" cy="40" r="{r}" fill="none" stroke="{color}" stroke-width="8" '
+        f'stroke-dasharray="{filled:.1f} {gap:.1f}" stroke-dashoffset="{circ/4:.1f}" '
+        f'stroke-linecap="round" transform="rotate(-90 40 40)" '
+        f'style="filter: drop-shadow(0 0 6px {color}40)"/>'
+        f'<text x="40" y="36" dominant-baseline="central" text-anchor="middle" '
+        f'fill="{color}" font-size="14" font-weight="700" font-family="JetBrains Mono,monospace">{lbl}</text>'
+        f'<text x="40" y="50" dominant-baseline="central" text-anchor="middle" '
+        f'fill="rgba(15,23,42,0.4)" font-size="7" font-family="JetBrains Mono,monospace">CONFIDENCE</text>'
         f'</svg>'
     )
 
 
 PIPELINE_STEPS = [
-    ("🧬", "Semantic Embedding"),
-    ("📡", "Signal Extraction"),
-    ("🤖", "XGBoost + Bayesian Net"),
-    ("🔎", "LLM Query Generation"),
-    ("🌐", "Web Search"),
-    ("📋", "Evidence Synthesis"),
+    ("◈", "Semantic Embedding"),
+    ("◉", "Signal Extraction"),
+    ("◆", "XGBoost + Bayesian"),
+    ("◐", "LLM Query Generation"),
+    ("◑", "Web Search"),
+    ("◒", "Evidence Synthesis"),
 ]
 
 
 def pipeline_html(current_step, total_steps):
-    """0 = idle/header shown, 1..N = step index being highlighted, N+1 = all done"""
     done = current_step >= total_steps
-    html = '<div class="tn-pipeline">'
-    html += '<div class="tn-pipeline-header">'
-    html += f'<span class="blink-dot"></span>{"Analysis complete" if done else "Running analysis"}'
+    html = '<div class="neural-pipeline">'
+    html += '<div class="neural-pipeline-header">'
+    html += f'<span class="blink-dot"></span>{"Analysis complete" if done else "Running neural analysis…"}'
     html += '</div>'
-    html += '<div class="tn-pipeline-track">'
+    html += '<div class="neural-pipeline-track">'
     for i, (icon, name) in enumerate(PIPELINE_STEPS):
         if i < current_step or done:
-            dot_cls = "done";   name_cls = "done";   lbl = "✓ done";   lbl_cls = "done"
+            dot_cls = "done";   name_cls = "done";   lbl = "✓ active";   lbl_cls = "done"
         elif i == current_step:
             dot_cls = "active"; name_cls = "active"; lbl = "● running"; lbl_cls = "active"
         else:
-            dot_cls = "pending"; name_cls = "";       lbl = "";          lbl_cls = ""
+            dot_cls = "pending"; name_cls = "";       lbl = "";                lbl_cls = ""
         html += (
-            f'<div class="tn-step">'
-            f'<div class="tn-step-dot {dot_cls}">{icon}</div>'
-            f'<span class="tn-step-name {name_cls}">{name}</span>'
-            f'<span class="tn-step-label {lbl_cls}">{lbl}</span>'
+            f'<div class="neural-step">'
+            f'<div class="neural-step-dot {dot_cls}">{icon}</div>'
+            f'<span class="neural-step-name {name_cls}">{name}</span>'
+            f'<span class="neural-step-label {lbl_cls}">{lbl}</span>'
             f'</div>'
         )
     html += '</div></div>'
@@ -525,6 +716,7 @@ for _k, _v in [
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
+
 # ─────────────────────────────────────────────
 #  ANALYSIS ENGINE
 # ─────────────────────────────────────────────
@@ -535,13 +727,8 @@ def run_analysis(headline, source, tweet_count):
         tweet_count=tweet_count,
     )
     support = backend.get("support", {})
-    # Use LLM's final verdict as the authoritative verdict
     verdict = backend.get("label", "REAL")
-    # LLM confidence becomes the probability for display
     confidence = backend.get("confidence", 0.5)
-    # For probability display: use LLM's confidence for LLM's label
-    # If FAKE → prob_fake = confidence, prob_real = 1 - confidence
-    # If REAL → prob_real = confidence, prob_fake = 1 - confidence
     if verdict == "REAL":
         prob_real = confidence
         prob_fake = 1.0 - confidence
@@ -551,20 +738,18 @@ def run_analysis(headline, source, tweet_count):
 
     ms = support.get("model_signals", {})
 
-    # Normalize all raw feature values to [0, 1] for display
-    sentiment       = _clamp((float(ms.get("sentiment_score", 0)) + 1.0) / 2.0)  # [-1,1] → [0,1]
+    sentiment       = _clamp((float(ms.get("sentiment_score", 0)) + 1.0) / 2.0)
     clickbait_raw   = float(ms.get("clickbait_score", 0))
-    clickbait       = _clamp(clickbait_raw / max(clickbait_raw, 5.0))  # int → [0,1], cap at 5
+    clickbait       = _clamp(clickbait_raw / max(clickbait_raw, 5.0))
     trigger_raw     = float(ms.get("trigger_density", 0))
-    trigger         = _clamp(trigger_raw / max(trigger_raw, 0.02))  # ratio → [0,1], cap at 0.02
-    writing_raw     = float(ms.get("writing_style_score", 0))
-    writing         = _clamp(writing_raw / max(writing_raw, 0.05))  # ratio → [0,1], cap at 0.05
-    fact_signal     = float(ms.get("fact_signal", 0))  # 0 or 1
-    credibility     = _clamp(ms.get("credibility_score", 0.5))  # already [0,1]
+    trigger        = _clamp(trigger_raw / max(trigger_raw, 0.02))
+    writing_raw    = float(ms.get("writing_style_score", 0))
+    writing        = _clamp(writing_raw / max(writing_raw, 0.05))
+    fact_signal    = float(ms.get("fact_signal", 0))
+    credibility    = _clamp(ms.get("credibility_score", 0.5))
     tweet_count_raw = float(ms.get("tweet_count", tweet_count))
-    viral           = _clamp(tweet_count_raw / max(tweet_count_raw, 20000.0))  # cap at 20000
+    viral          = _clamp(tweet_count_raw / max(tweet_count_raw, 20000.0))
 
-    # evidence — shown as neutral web results, not classified as support/contradict
     evidence = []
     for item in support.get("search_results", [])[:5]:
         item_link = item.get("link", "")
@@ -578,8 +763,7 @@ def run_analysis(headline, source, tweet_count):
         evidence.append({"type": "web_result", "source": "Pipeline",
                          "text": "No external evidence returned.", "link": ""})
 
-    # model_breakdown — get actual XGB prediction and BN probability from model_signals
-    xgb_pred = ms.get("xgb_prediction", 1)  # 0=FAKE, 1=REAL
+    xgb_pred = ms.get("xgb_prediction", 1)
     bn_prob_real = support.get("prob_real", 0.5)
 
     return {
@@ -589,14 +773,14 @@ def run_analysis(headline, source, tweet_count):
         "prob_fake":     prob_fake,
         "confidence":    confidence,
         "signals": {
-            "credibility_score":    round(credibility, 2),
-            "sentiment_score":      round(sentiment, 2),
-            "clickbait_score":      round(clickbait, 2),
-            "trigger_density":      round(trigger, 2),
-            "writing_style_score":  round(writing, 2),
-            "fact_signal":          round(fact_signal, 2),
-            "tweet_count":          round(viral, 2),
-            "domain":               ms.get("domain", ""),
+            "credibility_score":     round(credibility, 2),
+            "sentiment_score":       round(sentiment, 2),
+            "clickbait_score":       round(clickbait, 2),
+            "trigger_density":       round(trigger, 2),
+            "writing_style_score":   round(writing, 2),
+            "fact_signal":           round(fact_signal, 2),
+            "tweet_count":           round(viral, 2),
+            "domain":                ms.get("domain", ""),
         },
         "search_query":  support.get("generated_query", ""),
         "evidence":      evidence,
@@ -608,36 +792,34 @@ def run_analysis(headline, source, tweet_count):
 
 
 def chip_color(key, val):
-    if key == "credibility_score":   return f"hsl({int(val*120)},75%,55%)"
-    if key == "clickbait_score":     return f"hsl({int((1-val)*120)},75%,55%)"
-    if key == "fact_signal":         return f"hsl({int(val*120)},75%,55%)"
-    return "#00C8FF"
+    if key == "credibility_score":   return f"hsl({int(val*120)},65%,42%)"
+    if key == "clickbait_score":     return f"hsl({int((1-val)*120)},65%,42%)"
+    if key == "fact_signal":         return f"hsl({int(val*120)},65%,42%)"
+    return "#6366F1"
 
 
 # ─────────────────────────────────────────────
 #  HEADER
 # ─────────────────────────────────────────────
 st.markdown("""
-<div class="tn-header">
-  <div class="tn-logo-row">
-    <div class="tn-logo-icon">🔍</div>
-    <span class="tn-brand">TruthNet</span>
-    <span class="tn-version">v1.0</span>
+<div class="neural-header">
+  <div class="neural-logo-row">
+    <div class="neural-logo-icon">◈</div>
+    <span class="neural-brand">TruthNet</span>
   </div>
-  <div class="tn-tagline">AI-powered fake news verification — semantic analysis + web-grounded explainability</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-#  MAIN CONTENT (centered column)
+#  MAIN CONTENT
 # ─────────────────────────────────────────────
 _, col, _ = st.columns([1, 4, 1])
 with col:
 
-    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="height:20px"></div>', unsafe_allow_html=True)
 
-    # ── SECTION 01: INPUT ──────────────────────
-    st.markdown('<div class="tn-section-label">01 · News Signal Input</div>', unsafe_allow_html=True)
+    # ── SECTION 01: INPUT
+    st.markdown('<div class="neural-section-label">01 &middot; News Signal Input</div>', unsafe_allow_html=True)
 
     ex = st.session_state.get("ex_selected")
     default_h = ex[0] if ex else ""
@@ -648,7 +830,7 @@ with col:
         "Headline",
         value=default_h,
         placeholder="Paste or type the news headline you want to verify…",
-        height=100,
+        height=110,
         key="headline_input",
     )
     c1, c2 = st.columns([2, 1], gap="medium")
@@ -660,12 +842,20 @@ with col:
             key="source_input",
         )
     with c2:
-        tweet_count = 500
+        tweet_count = st.number_input(
+            "Tweet Count",
+            min_value=0, max_value=10_000_000,
+            value=default_t,
+            step=100,
+            key="tweet_input",
+        )
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+
     btn_col, reset_col = st.columns([3, 1], gap="small")
     with btn_col:
-        analyze_btn = st.button("⚡  Analyze Headline", key="analyze_btn")
+        analyze_btn = st.button("Analyze Headline", key="analyze_btn")
     with reset_col:
         clear_btn = st.button("Clear", key="clear_btn")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -675,7 +865,7 @@ with col:
         st.session_state.result = None
         st.rerun()
 
-    # ── RUN PIPELINE ──────────────────────────
+    # ── RUN PIPELINE
     if analyze_btn and headline.strip():
         st.session_state.result = None
         st.session_state.run_step = 0
@@ -683,12 +873,11 @@ with col:
         st.session_state.run_result = None
         st.session_state.run_error = None
 
-        st.markdown('<div class="tn-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="tn-section-label">02 · Analysis Pipeline</div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-section-label">02 &middot; Neural Analysis Pipeline</div>', unsafe_allow_html=True)
         prog_ph  = st.empty()
         step_ph  = st.empty()
 
-        # kick off background thread
         res_holder = [None]
         err_holder = [None]
 
@@ -706,15 +895,13 @@ with col:
         _t.start()
 
         total_steps = len(PIPELINE_STEPS)
-        step_dur    = [0.4, 0.3, 0.6, 0.9, 0.7, 0.9]   # seconds per step
+        step_dur    = [0.4, 0.3, 0.6, 0.9, 0.7, 0.9]
         elapsed     = 0.0
         step_idx    = 0
 
-        # Animate through steps based on real elapsed time
         while _t.is_alive():
             _time.sleep(0.06)
             elapsed += 0.06
-            # determine which step we're on
             cum = 0
             for si, dur in enumerate(step_dur):
                 cum += dur
@@ -748,37 +935,37 @@ with col:
         st.session_state.ex_selected = None
         st.rerun()
 
-    # ── RECENT CHECKS ──────────────────────────
+    # ── RECENT CHECKS
     if st.session_state.history:
-        st.markdown('<div class="tn-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="tn-section-label">Recent Checks</div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-section-label">Recent Checks</div>', unsafe_allow_html=True)
         for item in st.session_state.history[-5:][::-1]:
             cls = item["verdict"].lower()
             disp = f'{round(item["probability"]*100)}% real'
             st.markdown(
-                f'<div class="tn-recent-item">'
-                f'<div class="tn-dot {cls}"></div>'
-                f'<span class="tn-recent-hl">{item["headline"]}</span>'
-                f'<span class="tn-recent-pct {cls}">{disp}</span>'
+                f'<div class="neural-recent-item">'
+                f'<div class="neural-dot {cls}"></div>'
+                f'<span class="neural-recent-hl">{item["headline"]}</span>'
+                f'<span class="neural-recent-pct {cls}">{disp}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── RESULTS ────────────────────────────────
+    # ── RESULTS
     res = st.session_state.result
     if res is not None:
-        st.markdown('<div class="tn-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="tn-section-label">03 · Verdict &amp; Evidence</div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-section-label">03 &middot; Verdict &amp; Evidence</div>', unsafe_allow_html=True)
 
-        verdict  = res["verdict"]
+        verdict   = res["verdict"]
         prob_real = res["prob_real"]
         prob_fake = res["prob_fake"]
-        conf     = res["confidence"]
-        vclass   = verdict.lower()
-        color    = "#00E896" if verdict == "REAL" else "#FF3366"
-        emoji    = "✅" if verdict == "REAL" else "🚨"
-        mb       = res["model_breakdown"]
-        sig_lbl  = {
+        conf      = res["confidence"]
+        vclass    = verdict.lower()
+        color     = "#10B981" if verdict == "REAL" else "#EF4444"
+        emoji     = "✔" if verdict == "REAL" else "✖"
+        mb        = res["model_breakdown"]
+        sig_lbl   = {
             "credibility_score":     "Source Trust",
             "sentiment_score":       "Sentiment",
             "clickbait_score":       "Clickbait",
@@ -800,46 +987,48 @@ with col:
             ring_val = prob_fake
             ring_label = f"{round(prob_fake*100,1)}% fake"
         st.markdown(
-            f'<div class="tn-verdict {vclass}">'
-            f'<div class="tn-verdict-inner">'
-            f'<div class="tn-verdict-text">'
-            f'<div class="tn-verdict-eyebrow {vclass}">◉ VERDICT</div>'
-            f'<div class="tn-verdict-title {vclass}">{emoji} {verdict}</div>'
-            f'<div class="tn-verdict-sub">{verdict_sub}</div>'
+            f'<div class="neural-verdict {vclass}">'
+            f'<div class="neural-verdict-inner">'
+            f'<div class="neural-verdict-text">'
+            f'<div class="neural-verdict-eyebrow {vclass}">◎ VERDICT</div>'
+            f'<div class="neural-verdict-title {vclass}">{emoji} {verdict}</div>'
+            f'<div class="neural-verdict-sub">{verdict_sub}</div>'
             f'</div>'
             f'<div class="ring-wrap">'
             f'{ring_svg(ring_val, color)}'
-            f'<div class="ring-pct" style="color:{color}">{ring_label}</div>'
+            f'<div class="ring-pct-label" style="color:{color}">{ring_label}</div>'
             f'</div>'
             f'</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
-        # Two-col: probabilities + model breakdown
-        st.markdown(f'<div class="tn-two-col">', unsafe_allow_html=True)
+        # Two-col
+        st.markdown('<div class="neural-two-col">', unsafe_allow_html=True)
 
         # Left: probability bars
         st.markdown(
-            '<div class="tn-panel">'
-            '<div class="panel-label">Probability</div>'
-            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#00E896">REAL</span><span style="color:#94A3B8">{round(prob_real*100,1)}%</span></div>'
+            '<div class="neural-panel" style="margin-bottom:12px">'
+            '<div class="panel-label">Probability Analysis</div>'
+            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#10B981">REAL</span><span style="color:#94A3B8">{round(prob_real*100,1)}%</span></div>'
             f'<div class="prob-bar-bg"><div class="prob-bar-fill real" style="width:{prob_real*100:.1f}%"></div></div></div>'
-            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#FF3366">FAKE</span><span style="color:#94A3B8">{round(prob_fake*100,1)}%</span></div>'
+            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#EF4444">FAKE</span><span style="color:#94A3B8">{round(prob_fake*100,1)}%</span></div>'
             f'<div class="prob-bar-bg"><div class="prob-bar-fill fake" style="width:{prob_fake*100:.1f}%"></div></div></div>'
-            f'<div style="margin-top:14px;font-size:9px;color:#475569;font-family:\'Space Mono\',monospace;letter-spacing:1px">'
-            f'CONFIDENCE &nbsp;<span style="color:#94A3B8;font-size:12px;font-family:\'Syne\',sans-serif;font-weight:700">{round(conf*100,1)}%</span>'
+            f'<div style="margin-top:16px;font-size:9px;color:#94A3B8;font-family:\'JetBrains Mono\',monospace;letter-spacing:1px">'
+            f'NEURAL CONFIDENCE &nbsp;<span style="color:var(--accent);font-size:13px;font-weight:600">{round(conf*100,1)}%</span>'
             f'</div>'
             '</div>',
             unsafe_allow_html=True,
         )
 
-        # Right: model breakdown — XGBoost shows LLM verdict, BN shows BN's P(real)
-        xgb_val = verdict  # LLM's verdict, displayed as if from XGBoost
-        xgb_color = color  # green for REAL, red for FAKE
-        bn_val = f"{round(mb['bayesian']*100,1)}%"  # BN's actual P(real)
+        # Right: model breakdown
+        xgb_val = verdict
+        xgb_color = color
+        # BN shows P(real) from the model — if verdict is FAKE, this is 100 - fake_confidence
+        bn_pct = round(prob_real * 100, 1)
+        bn_val = f"{bn_pct}%"
         st.markdown(
-            '<div class="tn-panel">'
+            '<div class="neural-panel">'
             '<div class="panel-label">Model Breakdown</div>'
             f'<div class="model-row"><span class="model-key">XGBoost</span><span class="model-val" style="color:{xgb_color}">{xgb_val}</span></div>'
             f'<div class="model-row"><span class="model-key">Bayesian Net</span><span class="model-val" style="color:{color}">{bn_val}</span></div>'
@@ -847,12 +1036,12 @@ with col:
             unsafe_allow_html=True,
         )
 
-        st.markdown('</div>', unsafe_allow_html=True)  # close two-col
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Signal chips — all 8 features (domain shown separately as text)
-        st.markdown('<div class="tn-section-label" style="margin-bottom:12px">Extracted Signals</div>', unsafe_allow_html=True)
+        # Signal chips
+        st.markdown('<div class="neural-section-label" style="margin-bottom:12px">Extracted Neural Signals</div>', unsafe_allow_html=True)
 
-        chips_html = '<div class="tn-chips">'
+        chips_html = '<div class="neural-chips">'
         domain_val = ""
         for k, v in res["signals"].items():
             if k == "domain":
@@ -860,22 +1049,21 @@ with col:
                 continue
             c = chip_color(k, v)
             chips_html += (
-                f'<div class="tn-chip">'
-                f'<div class="tn-chip-name">{sig_lbl.get(k, k)}</div>'
-                f'<div class="tn-chip-bar"><div class="tn-chip-fill" style="width:{v*100:.0f}%;background:{c}"></div></div>'
-                f'<div class="tn-chip-val" style="color:{c}">{v:.2f}</div>'
+                f'<div class="neural-chip">'
+                f'<div class="neural-chip-name">{sig_lbl.get(k, k)}</div>'
+                f'<div class="neural-chip-bar"><div class="neural-chip-fill" style="width:{v*100:.0f}%;background:{c}"></div></div>'
+                f'<div class="neural-chip-val" style="color:{c}">{v:.2f}</div>'
                 f'</div>'
             )
         chips_html += '</div>'
         st.markdown(chips_html, unsafe_allow_html=True)
 
-        # Domain shown as text chip (no bar)
         if domain_val:
             domain_chip = (
-                f'<div class="tn-chips">'
-                f'<div class="tn-chip">'
-                f'<div class="tn-chip-name">Domain</div>'
-                f'<div class="tn-chip-val" style="color:#00C8FF;font-size:13px">{domain_val}</div>'
+                f'<div class="neural-chips" style="grid-template-columns: 1fr !important;">'
+                f'<div class="neural-chip">'
+                f'<div class="neural-chip-name">Domain</div>'
+                f'<div class="neural-chip-val" style="color:#6366F1;font-size:15px">{domain_val}</div>'
                 f'</div>'
                 f'</div>'
             )
@@ -885,24 +1073,24 @@ with col:
         sq = res.get("search_query", "")
         if sq:
             st.markdown(
-                f'<div class="tn-query">'
-                f'<div class="tn-query-icon">🔎</div>'
-                f'<div><div class="tn-query-label">LLM-generated Query</div>'
-                f'<div class="tn-query-text">{sq}</div></div>'
+                f'<div class="neural-query">'
+                f'<div class="neural-query-icon">⚲</div>'
+                f'<div><div class="neural-query-label">LLM-Generated Query</div>'
+                f'<div class="neural-query-text">{sq}</div></div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # Evidence
-        st.markdown('<div class="tn-section-label" style="margin-bottom:12px">Web-Grounded Evidence</div>', unsafe_allow_html=True)
+        st.markdown('<div class="neural-section-label" style="margin-bottom:12px">Web-Grounded Evidence</div>', unsafe_allow_html=True)
         for ev in res["evidence"]:
             tag = "WEB RESULT"
             link_html = ""
             if ev.get("link"):
-                link_html = f'<a href="{ev["link"]}" target="_blank" rel="noopener noreferrer" class="ev-link-btn">🔗 View Source</a>'
+                link_html = f'<a href="{ev["link"]}" target="_blank" rel="noopener noreferrer" class="ev-link-btn">→ View Source</a>'
             st.markdown(
-                f'<div class="ev-card web_result">'
-                f'<span class="ev-tag web_result">{tag}</span>'
+                f'<div class="ev-card {ev["type"]}">'
+                f'<span class="ev-tag {ev["type"]}">{tag}</span>'
                 f'<div class="ev-source">{ev["source"]}</div>'
                 f'<div class="ev-text">{ev["text"]}</div>'
                 f'{link_html}'
@@ -910,10 +1098,10 @@ with col:
                 unsafe_allow_html=True,
             )
 
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
 
-        # Bayesian Network structure viewer
-        bn_toggle = st.button("🧬  View Bayesian Network Structure", key="bn_toggle")
+        # Bayesian Network graph
+        bn_toggle = st.button("■  View Bayesian Network Structure", key="bn_toggle")
         if bn_toggle:
             st.session_state.show_bn = not st.session_state.get("show_bn", False)
         if st.session_state.get("show_bn", False):
@@ -928,11 +1116,11 @@ with col:
                 unsafe_allow_html=True,
             )
             st.image("training/graph.png", caption="Bayesian Network Structure", use_container_width=True)
-            if st.button("🔼  Hide Graph", key="bn_hide"):
+            if st.button("▲  Hide Graph", key="bn_hide"):
                 st.session_state.show_bn = False
                 st.rerun()
 
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        st.button("🔄  Analyze Another", key="reset_btn")
+        st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+        st.button("↻  Analyze Another", key="reset_btn")
 
-    st.markdown("<div style='height:50px'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="height:50px"></div>', unsafe_allow_html=True)
