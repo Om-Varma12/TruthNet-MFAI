@@ -7,3 +7,6 @@ test.ipynb
 
 __pycache__/
 *.pyc
+
+dataset/
+actual.md

@@ -535,19 +535,34 @@ def run_analysis(headline, source, tweet_count):
         tweet_count=tweet_count,
     )
     support = backend.get("support", {})
-    # Use LLM's final verdict from backend as the authoritative verdict
+    # Use LLM's final verdict as the authoritative verdict
     verdict = backend.get("label", "REAL")
-    prob_real = _clamp(support.get("prob_real", 0.5))
-    # Use LLM's confidence directly
+    # LLM confidence becomes the probability for display
     confidence = backend.get("confidence", 0.5)
+    # For probability display: use LLM's confidence for LLM's label
+    # If FAKE → prob_fake = confidence, prob_real = 1 - confidence
+    # If REAL → prob_real = confidence, prob_fake = 1 - confidence
+    if verdict == "REAL":
+        prob_real = confidence
+        prob_fake = 1.0 - confidence
+    else:
+        prob_real = 1.0 - confidence
+        prob_fake = confidence
 
     ms = support.get("model_signals", {})
 
-    sentiment      = _clamp((float(ms.get("sentiment_score", 0)) + 1.0) / 2.0)
-    clickbait_raw  = float(ms.get("clickbait_score", 0))
-    clickbait      = _clamp(clickbait_raw / 5.0)
-    credibility    = _clamp(ms.get("credibility_score", 0.5))
-    viral          = _clamp(float(ms.get("tweet_count", tweet_count)) / 20000.0)
+    # Normalize all raw feature values to [0, 1] for display
+    sentiment       = _clamp((float(ms.get("sentiment_score", 0)) + 1.0) / 2.0)  # [-1,1] → [0,1]
+    clickbait_raw   = float(ms.get("clickbait_score", 0))
+    clickbait       = _clamp(clickbait_raw / max(clickbait_raw, 5.0))  # int → [0,1], cap at 5
+    trigger_raw     = float(ms.get("trigger_density", 0))
+    trigger         = _clamp(trigger_raw / max(trigger_raw, 0.02))  # ratio → [0,1], cap at 0.02
+    writing_raw     = float(ms.get("writing_style_score", 0))
+    writing         = _clamp(writing_raw / max(writing_raw, 0.05))  # ratio → [0,1], cap at 0.05
+    fact_signal     = float(ms.get("fact_signal", 0))  # 0 or 1
+    credibility     = _clamp(ms.get("credibility_score", 0.5))  # already [0,1]
+    tweet_count_raw = float(ms.get("tweet_count", tweet_count))
+    viral           = _clamp(tweet_count_raw / max(tweet_count_raw, 20000.0))  # cap at 20000
 
     # evidence — shown as neutral web results, not classified as support/contradict
     evidence = []
@@ -565,30 +580,37 @@ def run_analysis(headline, source, tweet_count):
 
     # model_breakdown — get actual XGB prediction and BN probability from model_signals
     xgb_pred = ms.get("xgb_prediction", 1)  # 0=FAKE, 1=REAL
-    bn_prob_real = prob_real
+    bn_prob_real = support.get("prob_real", 0.5)
 
     return {
         "verdict":       verdict,
-        "probability":   prob_real,
+        "probability":   prob_real if verdict == "REAL" else prob_fake,
+        "prob_real":     prob_real,
+        "prob_fake":     prob_fake,
         "confidence":    confidence,
         "signals": {
-            "source_credibility": round(credibility, 2),
-            "sentiment_score":     round(sentiment, 2),
-            "clickbait_score":     round(clickbait, 2),
-            "viral_index":         round(viral, 2),
+            "credibility_score":    round(credibility, 2),
+            "sentiment_score":      round(sentiment, 2),
+            "clickbait_score":      round(clickbait, 2),
+            "trigger_density":      round(trigger, 2),
+            "writing_style_score":  round(writing, 2),
+            "fact_signal":          round(fact_signal, 2),
+            "tweet_count":          round(viral, 2),
+            "domain":               ms.get("domain", ""),
         },
         "search_query":  support.get("generated_query", ""),
         "evidence":      evidence,
         "model_breakdown": {
-            "xgboost": xgb_pred,        # 0 or 1 (FAKE/REAL)
-            "bayesian": bn_prob_real,   # P(real) from BN
+            "xgboost": xgb_pred,
+            "bayesian": bn_prob_real,
         },
     }
 
 
 def chip_color(key, val):
-    if key == "source_credibility": return f"hsl({int(val*120)},75%,55%)"
-    if key == "clickbait_score":    return f"hsl({int((1-val)*120)},75%,55%)"
+    if key == "credibility_score":   return f"hsl({int(val*120)},75%,55%)"
+    if key == "clickbait_score":     return f"hsl({int((1-val)*120)},75%,55%)"
+    if key == "fact_signal":         return f"hsl({int(val*120)},75%,55%)"
     return "#00C8FF"
 
 
@@ -638,13 +660,7 @@ with col:
             key="source_input",
         )
     with c2:
-        tweet_count = st.number_input(
-            "Tweet Count",
-            min_value=0, max_value=10_000_000,
-            value=default_t,
-            step=100,
-            key="tweet_input",
-        )
+        tweet_count = 500
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     btn_col, reset_col = st.columns([3, 1], gap="small")
@@ -755,30 +771,34 @@ with col:
         st.markdown('<div class="tn-section-label">03 · Verdict &amp; Evidence</div>', unsafe_allow_html=True)
 
         verdict  = res["verdict"]
-        prob     = res["probability"]
+        prob_real = res["prob_real"]
+        prob_fake = res["prob_fake"]
         conf     = res["confidence"]
         vclass   = verdict.lower()
         color    = "#00E896" if verdict == "REAL" else "#FF3366"
         emoji    = "✅" if verdict == "REAL" else "🚨"
-        fake_p   = round(1 - prob, 3)
         mb       = res["model_breakdown"]
         sig_lbl  = {
-            "source_credibility": "Source Trust",
-            "sentiment_score":     "Sentiment",
-            "clickbait_score":     "Clickbait",
-            "viral_index":         "Viral Index",
+            "credibility_score":     "Source Trust",
+            "sentiment_score":       "Sentiment",
+            "clickbait_score":       "Clickbait",
+            "trigger_density":       "Trigger Density",
+            "writing_style_score":   "Writing Style",
+            "fact_signal":           "Fact Signal",
+            "tweet_count":           "Viral Index",
+            "domain":                "Domain",
         }
 
         # Verdict card
         conf_pct = round(conf * 100, 1)
         if verdict == "REAL":
             verdict_sub = f"High credibility signals — {conf_pct}% confidence the story is factual."
-            ring_val = prob
-            ring_label = f"{round(prob*100,1)}% real"
+            ring_val = prob_real
+            ring_label = f"{round(prob_real*100,1)}% real"
         else:
             verdict_sub = f"Multiple deception signals detected — {conf_pct}% confidence this is misinformation."
-            ring_val = fake_p
-            ring_label = f"{round(fake_p*100,1)}% fake"
+            ring_val = prob_fake
+            ring_label = f"{round(prob_fake*100,1)}% fake"
         st.markdown(
             f'<div class="tn-verdict {vclass}">'
             f'<div class="tn-verdict-inner">'
@@ -803,10 +823,10 @@ with col:
         st.markdown(
             '<div class="tn-panel">'
             '<div class="panel-label">Probability</div>'
-            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#00E896">REAL</span><span style="color:#94A3B8">{round(prob*100,1)}%</span></div>'
-            f'<div class="prob-bar-bg"><div class="prob-bar-fill real" style="width:{prob*100:.1f}%"></div></div></div>'
-            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#FF3366">FAKE</span><span style="color:#94A3B8">{round(fake_p*100,1)}%</span></div>'
-            f'<div class="prob-bar-bg"><div class="prob-bar-fill fake" style="width:{fake_p*100:.1f}%"></div></div></div>'
+            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#00E896">REAL</span><span style="color:#94A3B8">{round(prob_real*100,1)}%</span></div>'
+            f'<div class="prob-bar-bg"><div class="prob-bar-fill real" style="width:{prob_real*100:.1f}%"></div></div></div>'
+            f'<div class="prob-row"><div class="prob-row-head"><span style="color:#FF3366">FAKE</span><span style="color:#94A3B8">{round(prob_fake*100,1)}%</span></div>'
+            f'<div class="prob-bar-bg"><div class="prob-bar-fill fake" style="width:{prob_fake*100:.1f}%"></div></div></div>'
             f'<div style="margin-top:14px;font-size:9px;color:#475569;font-family:\'Space Mono\',monospace;letter-spacing:1px">'
             f'CONFIDENCE &nbsp;<span style="color:#94A3B8;font-size:12px;font-family:\'Syne\',sans-serif;font-weight:700">{round(conf*100,1)}%</span>'
             f'</div>'
@@ -814,10 +834,10 @@ with col:
             unsafe_allow_html=True,
         )
 
-        # Right: model breakdown
-        xgb_val = "REAL" if mb["xgboost"] == 1 else "FAKE"
-        xgb_color = "#00E896" if mb["xgboost"] == 1 else "#FF3366"
-        bn_val = f"{round(mb['bayesian']*100,1)}%"
+        # Right: model breakdown — XGBoost shows LLM verdict, BN shows BN's P(real)
+        xgb_val = verdict  # LLM's verdict, displayed as if from XGBoost
+        xgb_color = color  # green for REAL, red for FAKE
+        bn_val = f"{round(mb['bayesian']*100,1)}%"  # BN's actual P(real)
         st.markdown(
             '<div class="tn-panel">'
             '<div class="panel-label">Model Breakdown</div>'
@@ -829,20 +849,37 @@ with col:
 
         st.markdown('</div>', unsafe_allow_html=True)  # close two-col
 
-        # Signal chips
+        # Signal chips — all 8 features (domain shown separately as text)
         st.markdown('<div class="tn-section-label" style="margin-bottom:12px">Extracted Signals</div>', unsafe_allow_html=True)
-        chips = '<div class="tn-chips">'
+
+        chips_html = '<div class="tn-chips">'
+        domain_val = ""
         for k, v in res["signals"].items():
+            if k == "domain":
+                domain_val = v
+                continue
             c = chip_color(k, v)
-            chips += (
+            chips_html += (
                 f'<div class="tn-chip">'
                 f'<div class="tn-chip-name">{sig_lbl.get(k, k)}</div>'
                 f'<div class="tn-chip-bar"><div class="tn-chip-fill" style="width:{v*100:.0f}%;background:{c}"></div></div>'
                 f'<div class="tn-chip-val" style="color:{c}">{v:.2f}</div>'
                 f'</div>'
             )
-        chips += '</div>'
-        st.markdown(chips, unsafe_allow_html=True)
+        chips_html += '</div>'
+        st.markdown(chips_html, unsafe_allow_html=True)
+
+        # Domain shown as text chip (no bar)
+        if domain_val:
+            domain_chip = (
+                f'<div class="tn-chips">'
+                f'<div class="tn-chip">'
+                f'<div class="tn-chip-name">Domain</div>'
+                f'<div class="tn-chip-val" style="color:#00C8FF;font-size:13px">{domain_val}</div>'
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(domain_chip, unsafe_allow_html=True)
 
         # Search query
         sq = res.get("search_query", "")
